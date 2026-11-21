@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" class="shot">
+<head>
+  <meta charset="utf-8">
+  <title>THE UNLIT HOUR — Render Preview</title>
+  <link rel="stylesheet" href="../game/style.css">
+</head>
+<body>
+  <canvas id="game" width="1280" height="480" aria-label="THE UNLIT HOUR Render Preview"></canvas>
+  <script src="../game/js/util.js"></script>
+  <script src="../game/js/level-data.js"></script>
+  <script src="../game/js/render.js"></script>
+  <script src="../game/js/ui.js"></script>
+  <script>
+    (function () {
+      const FALLBACK_LEVELS = [
+        {
+          name: 'Canal Quarter',
+          par: 75,
+          map: [
+            '#######################~~###############',
+            '#......................~~..............#',
+            '#..L..............L....~~.......#..L...#',
+            '#......................==.......#......#',
+            '#.........#............==.......#......#',
+            '#....CC...#....CC.CC...~~.......#......#',
+            '#.........#............~~..............#',
+            '#P........#........K...~~.......S.....X#',
+            '#.........#............~~..............#',
+            '#.........#..CC........~~.......#......#',
+            '#......................~~.......#......#',
+            '#.........S............==.......#......#',
+            '#..L...................==..L....#..L...#',
+            '#.........#...~~~~~~~~~~~.......#......#',
+            '##############~~~~~~~~~~~###############',
+          ],
+          guards: [],
+          screens: [
+            { x: 10, y: 11, orientation: 'NS' },
+            { x: 32, y: 7, orientation: 'NS' },
+          ],
+        },
+      ];
+
+      function parsePreviewLevel(def, index) {
+        const rows = def.map.slice();
+        let start = { tx: 1, ty: 7 };
+        let letter = { tx: 19, ty: 7 };
+        let exit = { tx: 38, ty: 7 };
+        const lamps = [];
+        for (let ty = 0; ty < rows.length; ty++) {
+          for (let tx = 0; tx < rows[ty].length; tx++) {
+            const c = rows[ty][tx];
+            if (c === 'P') start = { tx: tx, ty: ty };
+            else if (c === 'K') letter = { tx: tx, ty: ty };
+            else if (c === 'X') exit = { tx: tx, ty: ty };
+            else if (c === 'L') lamps.push({ tx: tx, ty: ty });
+          }
+        }
+        return {
+          index: index,
+          number: index + 1,
+          name: def.name,
+          par: def.par,
+          rows: rows,
+          start: start,
+          letter: letter,
+          exit: exit,
+          lamps: lamps,
+          guards: def.guards || [],
+          screens: def.screens || [],
+          hints: def.hints || [],
+          ripplePhase: 1.4,
+        };
+      }
+
+      function makeScreen(def, opts) {
+        const orientation = def.orientation || 'NS';
+        const o = opts || {};
+        const sc = {
+          tx: def.x,
+          ty: def.y,
+          orientation: orientation,
+          angle: o.angle !== undefined ? o.angle : (orientation === 'NS' ? Math.PI / 2 : 0),
+          swinging: Boolean(o.swinging),
+          swingT: o.swingT || 0,
+          shakeT: o.shakeT || 0,
+          fromAngle: o.fromAngle !== undefined ? o.fromAngle : (orientation === 'NS' ? Math.PI / 2 : 0),
+          toAngle: o.toAngle !== undefined ? o.toAngle : (orientation === 'NS' ? Math.PI : Math.PI / 2),
+          tiles: function (ori) {
+            const use = ori || this.orientation;
+            if (use === 'NS') {
+              return [
+                { tx: this.tx, ty: this.ty - 1 },
+                { tx: this.tx, ty: this.ty },
+                { tx: this.tx, ty: this.ty + 1 },
+              ];
+            }
+            return [
+              { tx: this.tx - 1, ty: this.ty },
+              { tx: this.tx, ty: this.ty },
+              { tx: this.tx + 1, ty: this.ty },
+            ];
+          },
+        };
+        return sc;
+      }
+
+      function previewBlocksSight(level, screens, tx, ty) {
+        if (ty < 0 || ty >= ROWS || tx < 0 || tx >= COLS) return true;
+        const ch = level.rows[ty][tx];
+        if (ch === '#' || ch === 'C') return true;
+        for (let i = 0; i < screens.length; i++) {
+          const tiles = screens[i].tiles();
+          for (let j = 0; j < tiles.length; j++) {
+            if (tiles[j].tx === tx && tiles[j].ty === ty) return true;
+          }
+        }
+        return false;
+      }
+
+      function previewCastCone(level, screens, guard) {
+        const origin = { x: guard.x, y: guard.y };
+        const points = [];
+        const rays = TUNING.coneRays;
+        const half = TUNING.coneHalfAngle;
+        const maxDist = TUNING.coneRange;
+
+        for (let i = 0; i < rays; i++) {
+          const t = rays > 1 ? i / (rays - 1) : 0.5;
+          const a = guard.facing - half + t * (half * 2);
+          const dx = Math.cos(a);
+          const dy = Math.sin(a);
+          let hitX = origin.x + dx * maxDist;
+          let hitY = origin.y + dy * maxDist;
+          for (let d = 2; d <= maxDist; d += 2) {
+            const px = origin.x + dx * d;
+            const py = origin.y + dy * d;
+            if (previewBlocksSight(level, screens, pixelToTile(px), pixelToTile(py))) {
+              let lo = d - 2;
+              let hi = d;
+              for (let step = 0; step < 5; step++) {
+                const mid = (lo + hi) * 0.5;
+                if (previewBlocksSight(level, screens, pixelToTile(origin.x + dx * mid), pixelToTile(origin.y + dy * mid))) {
+                  hi = mid;
+                } else {
+                  lo = mid;
+                }
+              }
+              hitX = origin.x + dx * hi;
+              hitY = origin.y + dy * hi;
+              break;
+            }
+          }
+          points.push({ x: hitX, y: hitY });
+        }
+        return { origin: origin, points: points };
+      }
+
+      function previewRoutePoints(waypoints) {
+        return waypoints.map(function (wp) { return tileCenter(wp.x, wp.y); });
+      }
+
+      function getMode() {
+        const q = window.location.search || '';
+        const m = /[?&]mode=([a-z]+)/i.exec(q);
+        return m ? m[1].toLowerCase() : 'play';
+      }
+
+      const mode = getMode();
+      const allLevels = (typeof LEVELS !== 'undefined' && LEVELS.length >= 3) ? LEVELS : FALLBACK_LEVELS;
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+
+      let game;
+
+      if (mode === 'title') {
+        game = {
+          state: 'title',
+          time: 2.4,
+          unlocked: [true, true, false],
+          titleSelection: 1,
+        };
+        drawOverlay(ctx, game);
+      } else if (mode === 'results') {
+        const def = allLevels[allLevels.length >= 3 ? 2 : 0];
+        const level = parsePreviewLevel(def, allLevels.length >= 3 ? 2 : 0);
+        const screens = level.screens.map(function (s) { return makeScreen(s); });
+        const g1Pos = tileCenter(10, 5);
+        const g2Pos = tileCenter(28, 9);
+        const g3Pos = tileCenter(35, 7);
+        const guards = [
+          {
+            x: g1Pos.x, y: g1Pos.y, facing: 15 * DEG, state: 'PATROL',
+            route: previewRoutePoints(level.guards[0] ? level.guards[0].waypoints : [{ x: 10, y: 5 }, { x: 28, y: 5 }]),
+            flickerPhase: 0.4, lastSeen: null, path: [],
+          },
+          {
+            x: g2Pos.x, y: g2Pos.y, facing: -160 * DEG, state: 'PATROL',
+            route: previewRoutePoints(level.guards[1] ? level.guards[1].waypoints : [{ x: 28, y: 9 }, { x: 10, y: 9 }]),
+            flickerPhase: 2.1, lastSeen: null, path: [],
+          },
+          {
+            x: g3Pos.x, y: g3Pos.y, facing: 155 * DEG, state: 'PATROL',
+            route: previewRoutePoints(level.guards[2] ? level.guards[2].waypoints : [{ x: 35, y: 7 }, { x: 36, y: 3 }, { x: 36, y: 11 }]),
+            flickerPhase: 3.7, lastSeen: null, path: [],
+          },
+        ];
+        guards.forEach(function (g) { g.cone = previewCastCone(level, screens, g); });
+        const exitPos = tileCenter(level.exit.tx, level.exit.ty);
+
+        game = {
+          state: 'results',
+          levelIndex: 2,
+          level: level,
+          world: { level: level, screens: screens },
+          screens: screens,
+          guards: guards,
+          player: { x: exitPos.x, y: exitPos.y, radius: 10, sneaking: false, moving: false, facing: 0, hidden: false },
+          exposure: 0,
+          hasLetter: true,
+          timesSeen: 0,
+          elapsed: 68.4,
+          time: 4.2,
+          hints: [],
+          hover: { screen: null, inReach: false },
+          results: {
+            title: 'DELIVERED UNSEEN',
+            time: 68.4,
+            timesSeen: 0,
+            stars: 3,
+            par: 100,
+            completed: [true, true, true],
+          },
+        };
+        renderFrame(ctx, game);
+        drawOverlay(ctx, game);
+      } else {
+        // Default play preview: Level 2 Canal Quarter with 2 guards (1 gold clipped by cart, 1 ALERT with red cone + path),
+        // Wren HIDDEN beside cover, 1 screen mid-swing with hover ring, water reflections, and a hint capsule.
+        const def = allLevels[allLevels.length >= 2 ? 1 : 0];
+        const level = parsePreviewLevel(def, allLevels.length >= 2 ? 1 : 0);
+        const screens = [
+          makeScreen(level.screens[0], {
+            swinging: true,
+            swingT: 0.45,
+            fromAngle: Math.PI / 2,
+            toAngle: Math.PI,
+            angle: Math.PI / 2 + 0.45 * (Math.PI / 2),
+          }),
+          makeScreen(level.screens[1] || { x: 32, y: 7, orientation: 'NS' }),
+        ];
+
+        const g0Pos = tileCenter(18, 3);
+        const g1Pos = tileCenter(18, 11);
+        const guards = [
+          {
+            x: g0Pos.x, y: g0Pos.y, facing: 118 * DEG, state: 'PATROL',
+            route: previewRoutePoints(level.guards[0] ? level.guards[0].waypoints : [{ x: 14, y: 3 }, { x: 30, y: 3 }, { x: 30, y: 4 }, { x: 14, y: 4 }]),
+            flickerPhase: 0.7, lastSeen: null, path: [],
+          },
+          {
+            x: g1Pos.x, y: g1Pos.y, facing: 175 * DEG, state: 'ALERT',
+            route: previewRoutePoints(level.guards[1] ? level.guards[1].waypoints : [{ x: 14, y: 11 }, { x: 21, y: 11 }]),
+            flickerPhase: 2.3,
+            lastSeen: { tx: 13, ty: 10 },
+            path: [{ tx: 17, ty: 11 }, { tx: 16, ty: 11 }, { tx: 15, ty: 11 }, { tx: 14, ty: 11 }, { tx: 13, ty: 11 }, { tx: 13, ty: 10 }],
+          },
+        ];
+        guards.forEach(function (g) { g.cone = previewCastCone(level, screens, g); });
+
+        const playerPos = tileCenter(8, 11);
+        const hintAnchor = tileCenter(10, 8);
+
+        game = {
+          state: mode === 'pause' ? 'paused' : (mode === 'caught' ? 'caught' : (mode === 'ending' ? 'ending' : (mode === 'error' ? 'error' : 'playing'))),
+          errorMessage: 'Level 1 Night Market: row 0 length 39 (expected 40)',
+          levelIndex: 1,
+          level: level,
+          world: { level: level, screens: screens },
+          screens: screens,
+          guards: guards,
+          player: {
+            x: playerPos.x + 8,
+            y: playerPos.y,
+            radius: 10,
+            sneaking: true,
+            moving: false,
+            facing: 0,
+            hidden: true,
+            coverTiles: [
+              { tx: 10, ty: 11, kind: 'screen', screenIndex: 0 },
+              { tx: 10, ty: 13, kind: 'wall', screenIndex: -1 },
+            ],
+          },
+          exposure: 38,
+          hasLetter: false,
+          timesSeen: 1,
+          elapsed: 19.2,
+          time: 3.1,
+          muted: false,
+          hints: [
+            { text: "Click a screen's pivot to turn it.", x: hintAnchor.x, y: hintAnchor.y, until: 10 },
+          ],
+          hover: { screen: screens[0], inReach: true },
+          results: null,
+        };
+
+        if (game.state === 'ending' || game.state === 'error') {
+          drawOverlay(ctx, game);
+        } else {
+          renderFrame(ctx, game);
+          drawOverlay(ctx, game);
+        }
+      }
+
+      window.__shotReady = true;
+      window.__SHOT_READY = true;
+      document.title = 'READY';
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+/* Viewport framing and 1280:480 letterboxed canvas layout for THE UNLIT HOUR. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #0B1020;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+canvas#game {
+  display: block;
+  aspect-ratio: 1280 / 480;
+  width: min(100vw, calc(100vh * 1280 / 480));
+  height: min(100vh, calc(100vw * 480 / 1280));
+  background: #0B1020;
+  user-select: none;
+}
+
+html.shot,
+html.shot body {
+  width: 1280px;
+  height: 480px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  display: block;
+  background: #0B1020;
+}
+
+html.shot canvas#game {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1280px;
+  height: 480px;
+  max-width: none;
+  max-height: none;
+}
