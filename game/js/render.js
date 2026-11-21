@@ -1202,7 +1202,9 @@ function renderFrame(ctx, game) {
   drawCones(ctx, game);
   drawWallFaces(ctx, game);
   drawEntities(ctx, game);
-  drawCoverOutline(ctx, game);
-  drawHiddenBadge(ctx, game);
+  if (game.state !== 'results') {
+    drawCoverOutline(ctx, game);
+    drawHiddenBadge(ctx, game);
+  }
   drawHud(ctx, game);
 }
