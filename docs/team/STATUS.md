@@ -1,6 +1,41 @@
-# THE UNLIT HOUR — Step 0
+# THE UNLIT HOUR — 自动交接进行中
 
-NEEDS CLAUDE: kit read, write CONTRACT.md
+NEEDS CLAUDE: Gate 1 logic review
+
+本地成品已打包并验证。Claude 回审、完整会话校验和参赛授权仍待完成。
+
+- A-2 提交 `0f8bec4` 交付四张实拍截图及确定性截图模式。B-2 提交 `0087693` 交付带三枚徽章的 README 和截图重现说明。四张 1280×480 PNG 均低于 262,144 字节，两种临时 Chrome 配置下独立重拍逐字节一致。
+- `node main.ts` 在两个独立的新目录中均返回 0。20 个输出文件逐字节一致，dossier 为 686,636 字节，vendor 与官方套件原件字节相同。包位于 `D:\unlit-scratch\gpt-release-package-20261121-135413\run1` 和 `run2`。
+- Chrome 从仓库入口和打包后的入口均完整回放三关，0 控制台错误、0 异常、0 外部请求。HTTP 也完整回放，唯一控制台错误是 Chrome 默认请求 `/favicon.ico` 的 404。四个截图 URL 的两个 READY 标志和标题均通过断言。
+- 完整证据在 [本地交付复核](reports/GPT-RELEASE-PREP.md)。待 Claude 回审时请同时核对 Gate 1 逻辑与首次提交前的本地成品。
+- 套件 dry-run 仍识别两项 Antigravity 原会话及两份 Codex 原始会话。已核实 Antigravity CLI 版本为 1.5.14。完整会话包还缺 Claude 原始记录、用户脱敏文件以及符合套件要求的 Codex 工具声明，未运行完整作者归属校验。
+
+- 待审代码提交 `f53504f6dffcc7ecc1fea23400d44a5a30ce4cdd`。第 0 步提交保留。此轮按精确路径清理了 10 个与第 0 步一致的已跟踪示例文件。
+- Gemini A 和 B 已从原会话续接，各自交付已复核并分别提交为 `066ef26` 和 `089c3f7`。
+- [Gate 1 复核报告](reports/GPT-GATE-1.md)含逻辑复跑命令、范围和证据。请 Claude 写新 REVIEW 文件，并提供本次 Claude 原始会话路径。
+- 本地套件 dry-run 识别两项 Antigravity 原会话及两份 Codex 原始会话，Antigravity 原生 protobuf 用量未能读取。完整本地 bundle、作者归属校验和可提交产物仍待完成。
+- 提交后额外运行 `node D:/unlit-scratch/gpt-catch.mjs`（退出 0）。三个正式关卡都能用固定步的正常移动输入触发被抓，分别为 23.62、15.50、15.12 秒。每次 R 都回到对应起点，曝光和警报归零。
+- 套件离线 `check --commit f53504f` 已运行。开放时间、快照、许可证和入口均通过。命令未提供会话包，`transcripts_present` 失败，作者归属等会话指标跳过。
+
+```text
+Logic checks: 42 passed, 0 failed
+PASS Night Market: 20.52s, peak exposure 0, alerts 0, stars 3
+PASS Canal Quarter: 23.02s, peak exposure 0, alerts 0, stars 3
+PASS Gatehouse Court: 23.02s, peak exposure 0, alerts 0, stars 3
+PASS title → all three deliveries → ending → title
+```
+
+2026-11-21 21:09 UTC 交接记录：用户要求暂停并整理交接包，两项原 Gemini CLI 执行均以 -1 退出（人为停止）。当时的未提交文件保留，见 reports/GPT-TRANSFER.md。
+
+## 当前自动协作方式（用户最新授权）
+
+用户已要求 GPT 自动检查另一 VS Code 窗口内 Claude 的任务和审查，不再由用户搬运消息。GPT 每约两分钟检查本目录的 CONTRACT / TASK / REVIEW / REQUESTS 变化，执行已授权任务并更新本 STATUS。请 Claude 同样检查 STATUS 和 REQUESTS，写好审查或新任务后保留原文件。GPT 不通过 UI 操作或唤醒停下的 Claude 会话。
+
+已读取 CONTRACT v1 和第一批三份任务书。两项 Gemini 原会话 ID 与日志见 SESSIONS.md。Steps 1–5 的实现和逻辑验收已提交本地，等待 Gate 1 审查。尚未推送和参赛提交，用户签名与参赛提交沿用原交接条件。
+
+---
+
+## 第 0 步历史记录
 
 状态：第 0 步的仓库与套件打包验证完成。停在接口约定关口，尚未编写 THE UNLIT HOUR 游戏代码，尚未派发 Gemini 任务，尚未推送或提交参赛。
 
