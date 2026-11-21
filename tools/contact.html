@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>THE UNLIT HOUR — Contact Sheet</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0B1020;
+      color: #EDEDED;
+      font-family: system-ui, sans-serif;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      align-items: center;
+    }
+    h1 { font-size: 18px; letter-spacing: 0.08em; }
+    h2 { font-size: 13px; color: #9FB0CC; margin-bottom: 8px; font-weight: 600; }
+    .strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+    figure {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+    figcaption { font-size: 12px; color: #C5D1E3; }
+    img {
+      display: block;
+      border: 1px solid #2A3350;
+      background: #141B2E;
+    }
+    .thumb { width: 320px; height: 120px; }
+    .cover { width: 768px; height: 288px; }
+  </style>
+</head>
+<body>
+  <h1>THE UNLIT HOUR — 25% SHRINK &amp; COVER CHECK</h1>
+
+  <section>
+    <h2>25% Thumbnails (320 × 120)</h2>
+    <div class="strip">
+      <figure>
+        <img class="thumb" src="../screenshots/01-overview.png" width="320" height="120" alt="01-overview">
+        <figcaption>01-overview</figcaption>
+      </figure>
+      <figure>
+        <img class="thumb" src="../screenshots/02-turn-the-screen.png" width="320" height="120" alt="02-turn-the-screen">
+        <figcaption>02-turn-the-screen</figcaption>
+      </figure>
+      <figure>
+        <img class="thumb" src="../screenshots/03-close-call.png" width="320" height="120" alt="03-close-call">
+        <figcaption>03-close-call</figcaption>
+      </figure>
+      <figure>
+        <img class="thumb" src="../screenshots/04-delivered.png" width="320" height="120" alt="04-delivered">
+        <figcaption>04-delivered</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cover View (768 × 288)</h2>
+    <figure>
+      <img class="cover" src="../screenshots/01-overview.png" width="768" height="288" alt="Cover 01-overview">
+      <figcaption>01-overview @ 768 × 288</figcaption>
+    </figure>
+  </section>
+</body>
+</html>
