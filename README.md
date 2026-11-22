@@ -13,8 +13,11 @@ You play as **Wren**, a courier crossing a lantern-lit canal town after curfew. 
 - **Three handcrafted levels**: `1 Night Market` (par 45 s), `2 Canal Quarter` (par 75 s), and `3 Gatehouse Court` (par 100 s), each validated at startup and completable with zero alerts.
 - **Real-time DDA vision cones**: 80-ray visibility wedges (`35°` half-angle, `256 px` range) clipped cleanly by walls, carts, and lattice screens, passing freely over canal water.
 - **Rotatable lattice screens**: Click any pivot within 3 tiles to swing a 3-tile screen `90°`, cutting off lantern beams or opening guarded shortcuts (blocked if occupied by Wren or a watchman).
-- **Five-state watchmen & exposure meter**: `PATROL` → `SUSPICIOUS` (`?`) → `ALERT` (`!`, BFS pursuit) → `SEARCH` → `RETURN`, driven by a continuous global exposure meter (`0–100`) that fills slower while sneaking.
-- **Synthesized WebAudio**: Procedural footsteps (with stereo-panned, distance-scaled watchman steps), wooden screen creaks, blocked thuds, chimes, gate chords, and nocturnal canal ambience with zero audio asset files.
+- **Pebble distraction**: Click any walkable floor tile within 6 tiles and line of sight to toss a pebble (3 per level), creating a noise ring that draws nearby watchmen (`PATROL` / `RETURN` / `SEARCH`) to investigate.
+- **Six-state watchmen & exposure meter**: `PATROL` → `INVESTIGATE` (`?`) / `SUSPICIOUS` (`?`) → `ALERT` (`!`, BFS pursuit) → `SEARCH` → `RETURN`, with guard speech barks and a continuous global exposure meter (`0–100`) that fills slower while sneaking.
+- **Lamplight & dousing**: Lit lamp posts cast warm pools that reveal Wren from `1.6×` cone range (`410 px` instead of `256 px`); press `E` beside a lit lamp to douse it for the run (at the cost of a 4-tile noise ring).
+- **Toggleable Field Notes & objective cue**: Press `H` during play to display or hide the compact Field Notes legend; a small top objective capsule tracks whether Wren is fetching the letter or heading for the gate, and the results overlay replays your sampled route trail.
+- **Synthesized WebAudio**: Procedural footsteps (with stereo-panned, distance-scaled watchman steps), wooden screen creaks, blocked thuds, stone pebble clicks, lamp douse hiss, exposure-reactive heartbeat, chimes, gate chords, and nocturnal canal ambience with zero audio asset files.
 - **Zero dependencies & offline-ready**: Plain classic `<script src="js/...">` tags, zero external network requests, zero bundlers.
 
 ## How to Run
@@ -40,7 +43,9 @@ Then open `http://localhost:8080` in your browser.
 | `W` `A` `S` `D` or `Arrow` keys | Move |
 | `Shift` (hold) | Sneak (slower pace, `0.6×` exposure buildup) |
 | `Left Click` on screen pivot | Rotate lattice screen `90°` (within 3 tiles) |
-| `E` | Pick up the Sealed Letter (adjacent) / Exit via Canal Gate (with letter) |
+| `Left Click` on walkable floor | Toss a pebble (within 6 tiles & LOS, 3 per level) to distract nearby watchmen |
+| `E` | Pick up the Sealed Letter (adjacent) / Exit via Canal Gate (with letter) / Douse a nearby lit lamp |
+| `H` | Toggle Field Notes legend overlay |
 | `R` | Restart current level |
 | `Esc` | Pause / Resume |
 | `M` | Mute / Unmute synthesized WebAudio |
@@ -53,10 +58,10 @@ The entry includes four deterministic `1280×480` PNG screenshots defined in [`s
 
 | File | Query | Scene |
 |---|---|---|
-| [`screenshots/01-overview.png`](screenshots/01-overview.png) | `?shot=1` | Cover — Level 2 (`Canal Quarter`) overview with both bridges, canal reflections, clipped patrol cone, and Wren `HIDDEN` at west cover |
+| [`screenshots/01-overview.png`](screenshots/01-overview.png) | `?shot=1` | Cover — Level 2 (`Canal Quarter`) with Wren `HIDDEN` at the cone rim, a doused lamp nearby + lit lamps, north watchman in `INVESTIGATE` toward a landed pebble, south watchman's cone cut by the west screen, callouts, and Field Notes |
 | [`screenshots/02-turn-the-screen.png`](screenshots/02-turn-the-screen.png) | `?shot=2` | Level 2 west lattice screen caught mid-swing, cutting the south-bank watchman's cone flat while Wren hides behind it |
-| [`screenshots/03-close-call.png`](screenshots/03-close-call.png) | `?shot=3` | Level 3 (`Gatehouse Court`) close call with Wren carrying the letter, `SEEN` status (`?`), and an `ALERT` watchman (`!`) in pursuit |
-| [`screenshots/04-delivered.png`](screenshots/04-delivered.png) | `?shot=4` | Level 3 `DELIVERED UNSEEN` results panel (3 stars, under par, `1·2·3` strip) over the dimmed courtyard |
+| [`screenshots/03-close-call.png`](screenshots/03-close-call.png) | `?shot=3` | Level 3 (`Gatehouse Court`) close call with Wren at the `?` cone rim carrying the letter (`SEEN`), an `ALERT` watchman (`!`) in pursuit, callouts, and Field Notes |
+| [`screenshots/04-delivered.png`](screenshots/04-delivered.png) | `?shot=4` | Level 3 `DELIVERED UNSEEN` results panel (3 stars, under par, `1·2·3` strip) over the dimmed courtyard and dotted cyan replay trail |
 
 To reproduce the captures in headless Chrome and verify size/thumbnail readability, see [`tools/shoot.md`](tools/shoot.md), [`tools/check-shots.mjs`](tools/check-shots.mjs), and [`tools/contact.html`](tools/contact.html).
 

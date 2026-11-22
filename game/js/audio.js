@@ -328,6 +328,129 @@ class Sfx {
     }
   }
 
+  pebble() {
+    if (!this._ready()) return;
+    const now = this.ctx.currentTime;
+    const clicks = [
+      { delay: 0, startFreq: 1380, endFreq: 690, bpFreq: 1750, dur: 0.036, peak: 0.055 },
+      { delay: 0.085, startFreq: 1060, endFreq: 540, bpFreq: 1350, dur: 0.03, peak: 0.03 },
+    ];
+
+    for (let i = 0; i < clicks.length; i++) {
+      const c = clicks[i];
+      const t0 = now + c.delay;
+
+      const osc = this.ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(c.startFreq, t0);
+      osc.frequency.exponentialRampToValueAtTime(c.endFreq, t0 + c.dur);
+
+      const oGain = this.ctx.createGain();
+      oGain.gain.setValueAtTime(0.0001, t0);
+      oGain.gain.exponentialRampToValueAtTime(c.peak, t0 + 0.004);
+      oGain.gain.exponentialRampToValueAtTime(0.0001, t0 + c.dur);
+
+      osc.connect(oGain);
+      oGain.connect(this.master);
+      osc.start(t0);
+      osc.stop(t0 + c.dur + 0.01);
+
+      if (this._noiseBuf) {
+        const src = this.ctx.createBufferSource();
+        src.buffer = this._noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(c.bpFreq, t0);
+        bp.Q.value = 2.4;
+
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.0001, t0);
+        nGain.gain.exponentialRampToValueAtTime(c.peak * 0.85, t0 + 0.003);
+        nGain.gain.exponentialRampToValueAtTime(0.0001, t0 + c.dur);
+
+        src.connect(bp);
+        bp.connect(nGain);
+        nGain.connect(this.master);
+        src.start(t0, this._rng() * 0.6, c.dur + 0.01);
+      }
+    }
+  }
+
+  heartbeat(intensity) {
+    if (!this._ready()) return;
+    const level = Math.max(0, Math.min(1, Number(intensity) || 0));
+    if (level <= 0.01) return;
+    const now = this.ctx.currentTime;
+    const pulses = [
+      { delay: 0, startFreq: 64, endFreq: 38, dur: 0.11, peak: 0.032 + 0.088 * level },
+      { delay: 0.14, startFreq: 56, endFreq: 34, dur: 0.1, peak: 0.02 + 0.058 * level },
+    ];
+
+    for (let i = 0; i < pulses.length; i++) {
+      const p = pulses[i];
+      const t0 = now + p.delay;
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(p.startFreq, t0);
+      osc.frequency.exponentialRampToValueAtTime(p.endFreq, t0 + p.dur);
+
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(160, t0);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(p.peak, t0 + 0.016);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + p.dur);
+
+      osc.connect(lp);
+      lp.connect(gain);
+      gain.connect(this.master);
+      osc.start(t0);
+      osc.stop(t0 + p.dur + 0.015);
+    }
+  }
+
+  douse() {
+    if (!this._ready()) return;
+    const now = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(310, now);
+    osc.frequency.exponentialRampToValueAtTime(105, now + 0.25);
+
+    const oGain = this.ctx.createGain();
+    oGain.gain.setValueAtTime(0.0001, now);
+    oGain.gain.exponentialRampToValueAtTime(0.055, now + 0.015);
+    oGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+
+    osc.connect(oGain);
+    oGain.connect(this.master);
+    osc.start(now);
+    osc.stop(now + 0.28);
+
+    if (this._noiseBuf) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._noiseBuf;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(1250, now);
+      bp.frequency.exponentialRampToValueAtTime(320, now + 0.24);
+      bp.Q.value = 1.4;
+
+      const nGain = this.ctx.createGain();
+      nGain.gain.setValueAtTime(0.0001, now);
+      nGain.gain.exponentialRampToValueAtTime(0.075, now + 0.02);
+      nGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+
+      src.connect(bp);
+      bp.connect(nGain);
+      nGain.connect(this.master);
+      src.start(now, this._rng() * 0.6, 0.26);
+    }
+  }
+
   startAmbience() {
     this._ambienceRunning = true;
     if (this.silent || !this.ctx || !this.master) return;

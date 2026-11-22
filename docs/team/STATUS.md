@@ -1,5 +1,150 @@
 # THE UNLIT HOUR — 自动交接进行中
 
+NEEDS CLAUDE: polish recheck
+
+## 05:25 UTC 冻结版验收
+
+最终的四张参赛图已替换。新画面保留原画幅和玩法判定，加入人物轮廓、灯光与熄灯、场记图例、任务提示、声波、守卫喊话和实际路线回放。第一次参赛仍指向基线 `6b6feb4`。
+
+- [四张新图](../../tools/contact.html) · [封面 768×288](evidence/A-3-after-768x288.png) · [A 报告](reports/GEMINI-A-3.md) · [B 报告](reports/GEMINI-B-3.md)
+- 55 项逻辑测试全过。普通 file://、本地 HTTP 和四个截图模式均无控制台问题、异常或外部请求。
+- 四张各重拍两次，逐字节相同，均低于 230,000 字节。正式产物跑两次，20 个文件逐字节相同。vendor 与下载的官方套件一致。
+- 保留了新增玩法和美术。游戏源码 149,737 字节，超过旧合同的 140 KB 内部预算。实际 dossier 文本 150,733 字节，低于套件的 160 KiB 限额，按正文逐一核对 15/15 个源码文件均完整收录。
+- 会话预检运行记录无缺项，作者归属 92.4%。最终提交的独立套件校验输出保存在 `D:/unlit-agent-runs/polish-submission-check.json`，会话包保存在 `D:/unlit-agent-runs/polish-submission-bundle.tar.gz`。
+- `redact.txt` 已建立，目前没有额外脱敏词条。登记的仓库归属地址与委托收款地址一致。
+
+### 冻结后命令输出
+
+```text
+EVIDENCE=D:\unlit-agent-runs\polish-final-0525
+FORBIDDEN_TERMS=0 in 15 game files
+PASS exposure at 0, 128, and 256 px, walking and sneaking
+PASS exposure decays by 35/s and clamps at 0 and 100
+PASS DDA rays and line of sight through tile #
+PASS DDA rays and line of sight through tile C
+PASS DDA rays and line of sight through tile S
+PASS DDA rays and line of sight through tile ~
+PASS DDA rays and line of sight through tile =
+PASS DDA rays and line of sight through tile L
+PASS DDA rays and line of sight through tile .
+PASS cone ray count, angular and range boundaries, and cart occlusion
+PASS BFS takes a shortest path with deterministic E, S, W, N ties
+PASS BFS returns null when walled off and follows the current screen orientation
+PASS PATROL sees positive exposure and becomes SUSPICIOUS
+PASS RETURN sees positive exposure and becomes SUSPICIOUS
+PASS SEARCH sees positive exposure and becomes SUSPICIOUS
+PASS PATROL sees full exposure and becomes ALERT
+PASS SUSPICIOUS sees full exposure and becomes ALERT
+PASS RETURN sees full exposure and becomes ALERT
+PASS SEARCH sees full exposure and becomes ALERT
+PASS SUSPICIOUS at zero exposure returns to PATROL at its waypoint
+PASS ALERT reaches last-seen center, sweeps 4 s in SEARCH, and returns by BFS
+PASS ALERT without a route to last-seen tile searches where it stands
+PASS only ALERT catches within 0.6 tiles
+PASS real game ticks count each ALERT entry once and switch to CAUGHT
+PASS screen reach uses 3 tiles and checks circle overlap for both actors
+PASS screen blocks its old tiles until the final swing tick
+PASS a late obstruction stops a turning screen before it traps an actor
+PASS level validation rejects invalid row shape and legend
+PASS level validation rejects invalid unique P/K/X
+PASS level validation rejects invalid screen geometry
+PASS level validation rejects invalid player route
+PASS level validation rejects invalid walkable waypoints clear of both orientations
+PASS level validation rejects invalid all patrol legs connect
+PASS level validation rejects invalid waypoint wait bounds
+PASS all three shipped levels pass validation in script load order
+PASS player circle cannot cross tile #
+PASS player circle cannot cross tile C
+PASS player circle cannot cross tile ~
+PASS player circle cannot cross tile L
+PASS player circle cannot cross tile S
+PASS diagonal player movement slides along a wall
+PASS walk speed is 2.4 tiles/s and sneak speed is 1.4 tiles/s
+PASS pebbles respect throw range, line of sight, and remaining stock
+PASS two quick throws each finish and make their own landing noise
+PASS H toggles field notes and the screen pivot keeps its original click behavior
+PASS a pebble lands at 0.4 seconds, emits a noise, and restarts with three throws
+PASS noise reaches SEARCH and RETURN but skips ALERT and guards outside six tiles
+PASS noise cannot lure a guard across an impassable canal
+PASS INVESTIGATE walks at 0.8 tiles/s, sweeps for two seconds, and returns to patrol
+PASS seeing the player interrupts INVESTIGATE with SUSPICIOUS
+PASS seeing the player interrupts INVESTIGATE with ALERT
+PASS a moving guard emits a ring and calls the panned footstep sound
+PASS lamplight extends sight to 1.6 times normal range while cover still blocks it
+PASS E douses an adjacent lamp for the run and lures a guard to a walkable side
+PASS route records the start and a new position every quarter second
+Logic checks: 55 passed, 0 failed
+PASS Night Market: 20.52s, peak exposure 0, alerts 0, stars 3
+PASS Canal Quarter: 23.02s, peak exposure 0, alerts 0, stars 3
+PASS Gatehouse Court: 23.02s, peak exposure 0, alerts 0, stars 3
+PASS title → all three deliveries → ending → title
+PASS 01-overview.png 1280x480 209457B
+PASS 02-turn-the-screen.png 1280x480 210361B
+PASS 03-close-call.png 1280x480 204829B
+PASS 04-delivered.png 1280x480 173160B
+PASS 01-overview.png 1280x480 209457B
+PASS 02-turn-the-screen.png 1280x480 210361B
+PASS 03-close-call.png 1280x480 204829B
+PASS 04-delivered.png 1280x480 173160B
+SCREENSHOT_CMP=IDENTICAL 01-overview.png
+SCREENSHOT_CMP=IDENTICAL 02-turn-the-screen.png
+SCREENSHOT_CMP=IDENTICAL 03-close-call.png
+SCREENSHOT_CMP=IDENTICAL 04-delivered.png
+EVAL: {"shot":1,"state":"playing","hidden":true,"fieldNotes":true,"pebbles":2,"pebbleLanded":true,"lampsOut":1,"exposure":27.000000000000004,"guards":["INVESTIGATE","PATROL"],"trailPoints":1}
+URL: file:///D:/the-unlit-hour/game/index.html?shot=1
+CONSOLE_ISSUES: 0
+EXCEPTIONS: 0
+OUTSIDE_REQUESTS: 0
+EVAL: {"shot":2,"state":"playing","hidden":true,"fieldNotes":true,"pebbles":3,"pebbleLanded":false,"lampsOut":0,"exposure":0,"guards":["PATROL","PATROL"],"trailPoints":1}
+URL: file:///D:/the-unlit-hour/game/index.html?shot=2
+CONSOLE_ISSUES: 0
+EXCEPTIONS: 0
+OUTSIDE_REQUESTS: 0
+EVAL: {"shot":3,"state":"playing","hidden":false,"fieldNotes":true,"pebbles":3,"pebbleLanded":false,"lampsOut":0,"exposure":59.944477027974074,"guards":["SUSPICIOUS","ALERT","PATROL"],"trailPoints":1}
+URL: file:///D:/the-unlit-hour/game/index.html?shot=3
+CONSOLE_ISSUES: 0
+EXCEPTIONS: 0
+OUTSIDE_REQUESTS: 0
+EVAL: {"shot":4,"state":"results","hidden":true,"fieldNotes":false,"pebbles":3,"pebbleLanded":false,"lampsOut":0,"exposure":0,"guards":["PATROL","PATROL","PATROL"],"trailPoints":93,"results":"DELIVERED UNSEEN"}
+URL: file:///D:/the-unlit-hour/game/index.html?shot=4
+CONSOLE_ISSUES: 0
+EXCEPTIONS: 0
+OUTSIDE_REQUESTS: 0
+EVAL: ["PASS Night Market: 20.52s, peak exposure 0, alerts 0, stars 3","PASS Canal Quarter: 23.02s, peak exposure 0, alerts 0, stars 3","PASS Gatehouse Court: 23.02s, peak exposure 0, alerts 0, stars 3","PASS title → all three deliveries → ending → title"]
+URL: file:///D:/the-unlit-hour/game/index.html
+CONSOLE_ISSUES: 0
+EXCEPTIONS: 0
+OUTSIDE_REQUESTS: 0
+EVAL: ["PASS Night Market: 20.52s, peak exposure 0, alerts 0, stars 3","PASS Canal Quarter: 23.02s, peak exposure 0, alerts 0, stars 3","PASS Gatehouse Court: 23.02s, peak exposure 0, alerts 0, stars 3","PASS title → all three deliveries → ending → title"]
+URL: http://localhost:8125/
+CONSOLE_ISSUES: 0
+EXCEPTIONS: 0
+OUTSIDE_REQUESTS: 0
+
+EVIDENCE=D:\unlit-agent-runs\polish-final-0525
+PASS 01-overview.png 1280x480 209457B
+PASS 02-turn-the-screen.png 1280x480 210361B
+PASS 03-close-call.png 1280x480 204829B
+PASS 04-delivered.png 1280x480 173160B
+PACKAGE_CMP=IDENTICAL 20 files, dossier 1219207 bytes
+DOSSIER_FULL_SOURCE=15/15, text 150733 bytes
+VENDOR_CMP=IDENTICAL
+```
+
+
+## 2026-11-22 最终冲刺，进行中
+
+- GitHub 基线 `6b6feb4` 已获首次提交收据 `01a2019e-4644-772e-96d7-88af4db5f50c`。
+- 04:59:27 UTC，A 和 B 在原 Antigravity 会话中接到 TASK-POLISH-1 指令。新原始记录保存在 `D:/unlit-agent-runs/gemini-a-3-20261122-045927.stream.jsonl`、`D:/unlit-agent-runs/gemini-b-3-20261122-045927.stream.jsonl`，相同前缀的 CLI / stderr 日志亦保留。
+- 05:01 UTC，首轮会话 dry-run 返回 0，运行记录缺项数为 0。使用已验证的 `node_repl`、`cua_repl` 和 `codex_apps` 声明。两份 Codex、两份 Antigravity、Claude 和其原始子会话均列入。CLI 对目录使用专用 `--antigravity-dir`，因为 `--session` 对目录报 `not a regular file`。
+- `redact.txt` 已建立，额外脱敏词条为空。仓库归属地址与用户提供的归属文件、首次收据中的委托收款地址均一致。
+- 给 A/B 的候选画面反馈：05:03 UTC 首轮封面为 248,759 字节。光照、街面、缩览布局已能预览，需要继续压到 230,000 字节以内。封面请确保落地的 `game.pebble` 点与噪声圈一起可见。
+- G6–G8 接口已补齐。`level.lampsLit` 按 `level.lamps` 同序初始化为 true，玩家每 0.25 秒采样到 `game.trail`（`{x,y}`）。A 请加 2 格暖光与熄灯烟，B 请加 douse 音效、图例/封面、顶部任务提示和结算路线，详见任务书更新。
+- 人物更新紧跟夜景光照。A 请导出 `drawWatchmanFigure(ctx, guard, time)` 和 `drawCourierFigure(ctx, player, time, hasLetter)`，B 在图例缩小调用。人物像素半径按任务书增大，碰撞和视线原样保留。补充指令已按原会话排队，B 的续接已经启动。
+- 05:19 UTC，A/B 均已完成本轮代码，候选通过 55 项逻辑检查、六次浏览器运行及四图重拍比对。第三张图实测曝光约 59.94%，Wren 与守卫锥轴相差 30.72°，在 35° 半角内。会话预检识别 6 份原始记录，作者归属 92.4%，运行记录无缺项。
+- 候选游戏源码 149,737 字节，超过旧合同的 140 KB 内部预算。实测 dossier 文本 150,733 字节，15/15 文件源码完整收录，在套件 160 KiB 限额内。保留本轮优先功能并提交 Claude 复核。
+- 本轮后续 Antigravity 原始记录前缀（同目录 `D:/unlit-agent-runs`）：`gemini-a-3-updates-20261122-050956`、`gemini-b-3-updates-20261122-050647`、`gemini-b-3-panel-20261122-051025`、`gemini-b-3-rim-20261122-051624`。
+
 NEEDS CLAUDE: Gate 1 logic review
 
 本地成品已打包并验证。Claude 回审、完整会话校验和参赛授权仍待完成。

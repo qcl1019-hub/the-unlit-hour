@@ -9,6 +9,7 @@ class Guard {
     this.radius = TUNING.guardRadius;
     this.facing = 0;
     this.lastSeen = null;
+    this.noiseTarget = null;
     this.path = [];
     this.stepTimer = 0;
     this.flickerPhase = rng() * Math.PI * 2;
@@ -32,8 +33,9 @@ class Guard {
   setState(name, opts = {}) {
     const previous = this.state;
     if (opts.lastSeen !== undefined) this.lastSeen = opts.lastSeen;
-    if (name === previous) return previous;
+    if (name === previous && (name !== 'INVESTIGATE' || opts.noiseTarget === undefined)) return previous;
     this.state = name;
+    this.noiseTarget = name === 'INVESTIGATE' ? (opts.noiseTarget ?? null) : null;
     if (name === 'ALERT') this.enteredAlert = true;
     this.path = [];
     this.pathTarget = null;
@@ -178,6 +180,35 @@ class Guard {
     }
   }
 
+  grdInvestigate(dt, world) {
+    const target = this.noiseTarget;
+    if (!target || !isWalkable(world, target.tx, target.ty)) {
+      this.setState('RETURN');
+      return;
+    }
+    const next = this.path[0];
+    if (this.pathTarget !== target || (next && !isWalkable(world, next.tx, next.ty))) {
+      const path = this.grdPathTo(world, target.tx, target.ty);
+      if (path === null) {
+        this.setState('RETURN');
+        return;
+      }
+      this.path = path;
+      this.pathTarget = target;
+    }
+    if (this.path.length) {
+      const tile = this.path[0];
+      const aim = tileCenter(tile.tx, tile.ty);
+      this.grdTurnToward(Math.atan2(aim.y - this.y, aim.x - this.x), dt);
+      this.grdFollowPath(TUNING.guardSuspiciousSpeed, dt);
+      if (!this.path.length) this.sweepBase = this.facing;
+      return;
+    }
+    this.stateTime += dt;
+    this.facing = this.sweepBase + 60 * DEG * Math.sin(Math.PI * this.stateTime);
+    if (this.stateTime + 1e-9 >= 2) this.setState('RETURN');
+  }
+
   update(dt, world, player, exposure) {
     this.moving = false;
     this.caughtPlayer = false;
@@ -201,6 +232,7 @@ class Guard {
         if (this.stateTime + 1e-9 >= TUNING.searchTime) this.setState('RETURN');
         break;
       case 'RETURN': this.grdReturn(dt, world); break;
+      case 'INVESTIGATE': this.grdInvestigate(dt, world); break;
     }
     this.cone = castVisionCone(world, this);
   }

@@ -22,11 +22,11 @@ for (const name of scripts) {
 const {
   COLS, ROWS, TILE, DEG, DT, TUNING, Game, Guard, LatticeScreen, Player,
   advanceExposure, exposureRate, mulberry32, tileCenter, isWalkable, castRay, hasLineOfSight,
-  pointInCone, castVisionCone, findPath, parseLevel, validateLevel, validateAllLevels,
+  pointInCone, lampRangeAt, castVisionCone, findPath, parseLevel, validateLevel, validateAllLevels,
 } = vm.runInContext(`({
   COLS, ROWS, TILE, DEG, DT, TUNING, Game, Guard, LatticeScreen, Player,
   advanceExposure, exposureRate, mulberry32, tileCenter, isWalkable, castRay, hasLineOfSight,
-  pointInCone, castVisionCone, findPath, parseLevel, validateLevel, validateAllLevels
+  pointInCone, lampRangeAt, castVisionCone, findPath, parseLevel, validateLevel, validateAllLevels
 })`, context);
 
 let passed = 0;
@@ -342,6 +342,202 @@ test('walk speed is 2.4 tiles/s and sneak speed is 1.4 tiles/s', () => {
     ticks(60, () => player.move(world, { dx: 1, dy: 0, sneak }, DT));
     close(player.x - startX, (sneak ? 1.4 : 2.4) * TILE);
   }
+});
+
+function pebbleGame(def = fixture()) {
+  const game = new Game(canvas);
+  game.levels = [parseLevel(def, 0)];
+  game.loadLevel(0);
+  return game;
+}
+
+test('pebbles respect throw range, line of sight, and remaining stock', () => {
+  const def = fixture();
+  setTile(def, 3, 2, 'C');
+  const game = pebbleGame(def);
+  assert.equal(game.gameTossPebble(tileCenter(2, 9)), false);
+  assert.equal(game.gameTossPebble(tileCenter(5, 2)), false);
+  assert.equal(game.pebbles, 3);
+  assert.equal(game.gameTossPebble(tileCenter(2, 8)), true);
+  assert.equal(game.pebbles, 2);
+  game.pebbles = 0;
+  assert.equal(game.gameTossPebble(tileCenter(2, 5)), false);
+});
+
+test('two quick throws each finish and make their own landing noise', () => {
+  const game = pebbleGame();
+  assert.equal(game.gameTossPebble(tileCenter(3, 3)), true);
+  const first = game.pebble;
+  ticks(12, () => game.step(DT));
+  assert.equal(game.gameTossPebble(tileCenter(4, 4)), true);
+  const second = game.pebble;
+  ticks(12, () => game.step(DT));
+  close(first.landedAt, 0.4);
+  assert.equal(second.landedAt, null);
+  ticks(12, () => game.step(DT));
+  close(second.landedAt, 0.6);
+  assert.equal(game.pebbles, 1);
+  assert.equal(game.noises.length, 2);
+});
+
+test('H toggles field notes and the screen pivot keeps its original click behavior', () => {
+  const game = pebbleGame(screenFixture());
+  game.player = new Player({ tx: 8, ty: 6 });
+  game.clicks.push(tileCenter(10, 7));
+  game.pressed.add('KeyH');
+  game.step(DT);
+  assert.equal(game.fieldNotes, true);
+  assert.equal(game.screens[0].swinging, true);
+  assert.equal(game.pebbles, 3);
+  game.pressed.add('KeyH');
+  game.step(DT);
+  assert.equal(game.fieldNotes, false);
+});
+
+test('a pebble lands at 0.4 seconds, emits a noise, and restarts with three throws', () => {
+  const def = fixture();
+  def.guards.push(route([5, 5, 90], [6, 5]));
+  const game = pebbleGame(def);
+  const target = tileCenter(5, 2);
+  game.clicks.push(target);
+  ticks(23, () => game.step(DT));
+  assert.equal(game.pebble.landedAt, null);
+  assert.equal(game.guards[0].state, 'PATROL');
+  game.step(DT);
+  close(game.pebble.landedAt, 0.4);
+  assert.equal(game.guards[0].state, 'INVESTIGATE');
+  assert.equal(game.guards[0].noiseTarget.tx, 5);
+  assert.equal(game.barks[0].text, 'What was that?');
+  assert.ok(game.noises.some(noise => noise.radius === 6 * TILE && noise.x === target.x));
+  game.restartLevel();
+  assert.equal(game.pebbles, 3);
+  assert.equal(game.pebble, null);
+  assert.equal(game.noises.length, 0);
+});
+
+test('noise reaches SEARCH and RETURN but skips ALERT and guards outside six tiles', () => {
+  const def = fixture();
+  def.guards.push(
+    route([5, 3]), route([6, 3]), route([7, 3]), route([18, 7])
+  );
+  const game = pebbleGame(def);
+  game.guards[0].setState('SEARCH');
+  game.guards[1].setState('RETURN');
+  game.guards[2].setState('ALERT');
+  assert.equal(game.gameTossPebble(tileCenter(5, 2)), true);
+  game.gameUpdatePebble(0.4);
+  assert.deepEqual(Array.from(game.guards, guard => guard.state),
+    ['INVESTIGATE', 'INVESTIGATE', 'ALERT', 'PATROL']);
+});
+
+test('noise cannot lure a guard across an impassable canal', () => {
+  const def = fixture();
+  for (let y = 1; y < ROWS - 1; y++) setTile(def, 7, y, '~');
+  def.guards.push(route([8, 2]));
+  const game = pebbleGame(def);
+  assert.equal(game.gameTossPebble(tileCenter(6, 2)), true);
+  game.gameUpdatePebble(0.4);
+  assert.equal(game.guards[0].state, 'PATROL');
+});
+
+test('INVESTIGATE walks at 0.8 tiles/s, sweeps for two seconds, and returns to patrol', () => {
+  const { world, guard } = guardFixture();
+  const player = tileCenter(25, 12);
+  guard.setState('INVESTIGATE', { noiseTarget: { tx: 7, ty: 6 } });
+  const update = () => guard.update(DT, world, player, 0);
+  update();
+  close(guard.x, tileCenter(8, 6).x - 0.8 * TILE * DT);
+  ticks(74, update);
+  close(guard.x, tileCenter(7, 6).x);
+  const base = guard.facing;
+  ticks(30, update);
+  close(guard.facing, base + 60 * DEG);
+  ticks(60, update);
+  close(guard.facing, base - 60 * DEG);
+  ticks(29, update);
+  assert.equal(guard.state, 'INVESTIGATE');
+  update();
+  assert.equal(guard.state, 'RETURN');
+  ticks(60, update);
+  assert.equal(guard.state, 'PATROL');
+});
+
+for (const [exposure, next] of [[1, 'SUSPICIOUS'], [100, 'ALERT']]) {
+  test(`seeing the player interrupts INVESTIGATE with ${next}`, () => {
+    const { world, guard } = guardFixture();
+    guard.setState('INVESTIGATE', { noiseTarget: { tx: 9, ty: 6 } });
+    guard.update(DT, world, tileCenter(12, 6), exposure);
+    assert.equal(guard.state, next);
+    assert.equal(guard.noiseTarget, null);
+  });
+}
+
+test('a moving guard emits a ring and calls the panned footstep sound', () => {
+  const def = fixture();
+  def.guards.push(route([5, 3]));
+  const game = pebbleGame(def);
+  const guard = game.guards[0];
+  const steps = [];
+  game.sfx = { guardStep: (pan, gain) => steps.push({ pan, gain }) };
+  guard.moving = true;
+  guard.stepTimer = TUNING.guardStepInterval - DT;
+  game.gameUpdateFootsteps(DT);
+  assert.ok(steps[0].pan > 0 && steps[0].gain > 0);
+  assert.equal(game.noises[0].radius, 2.5 * TILE);
+});
+
+test('lamplight extends sight to 1.6 times normal range while cover still blocks it', () => {
+  const def = fixture();
+  setTile(def, 12, 6, 'L');
+  const game = pebbleGame(def);
+  const guard = { ...tileCenter(1, 6), facing: 0 };
+  const lit = tileCenter(13, 6);
+  const dark = tileCenter(14, 7);
+  close(lampRangeAt(game.world, lit.x, lit.y), 409.6);
+  assert.equal(lampRangeAt(game.world, dark.x, dark.y), 256);
+  assert.equal(pointInCone(game.world, guard, lit.x, lit.y), true);
+  assert.equal(pointInCone(game.world, guard, dark.x, dark.y), false);
+  setTile(def, 6, 6, 'C');
+  game.level.rows = def.map.slice();
+  assert.equal(pointInCone(game.world, guard, lit.x, lit.y), false);
+});
+
+test('E douses an adjacent lamp for the run and lures a guard to a walkable side', () => {
+  const def = fixture();
+  setTile(def, 3, 2, 'L');
+  def.guards.push(route([4, 3, 90]), route([15, 6, 90]));
+  const game = pebbleGame(def);
+  let hisses = 0;
+  game.sfx = { douse: () => { hisses++; } };
+  const pressE = () => { game.pressed.add('KeyE'); game.step(DT); };
+  close(lampRangeAt(game.world, game.player.x, game.player.y), 409.6);
+  pressE();
+  assert.equal(hisses, 1);
+  assert.equal(game.level.lampsLit[0], false);
+  assert.equal(lampRangeAt(game.world, game.player.x, game.player.y), 256);
+  assert.equal(game.noises[0].radius, 4 * TILE);
+  const [near, far] = game.guards;
+  assert.equal(near.state, 'INVESTIGATE');
+  assert.ok(isWalkable(game.world, near.noiseTarget.tx, near.noiseTarget.ty));
+  assert.equal(Math.abs(near.noiseTarget.tx - 3) + Math.abs(near.noiseTarget.ty - 2), 1);
+  assert.equal(far.state, 'PATROL');
+  pressE();
+  assert.equal(hisses, 1);
+  game.sfx = null;
+  game.restartLevel();
+  assert.equal(game.level.lampsLit[0], true);
+});
+
+test('route records the start and a new position every quarter second', () => {
+  const game = pebbleGame();
+  const [start] = game.trail;
+  game.keys.add('KeyS');
+  ticks(14, () => game.step(DT));
+  assert.equal(game.trail.length, 1);
+  game.step(DT);
+  assert.equal(game.trail.length, 2);
+  assert.equal(game.trail[1].x, start.x);
+  close(game.trail[1].y - start.y, TUNING.playerWalk * TILE * 0.25);
 });
 
 console.log(`Logic checks: ${passed} passed, ${failed} failed`);

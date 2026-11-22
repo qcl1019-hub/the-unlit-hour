@@ -220,11 +220,11 @@ function drawTitle(ctx, game) {
 
   // Controls line.
   ctx.fillStyle = rndColorAlpha(COLORS.hudText, 0.82);
-  ctx.font = '14px ' + FONT;
+  ctx.font = '13px ' + FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(
-    'WASD / Arrows move \u00B7 Shift sneak \u00B7 Click pivot turn screen \u00B7 E interact \u00B7 R restart \u00B7 Esc pause \u00B7 M mute',
+    'WASD / Arrows move \u00B7 Shift sneak \u00B7 Click pivot screen / floor pebble \u00B7 E interact \u00B7 H field notes \u00B7 R restart \u00B7 Esc pause \u00B7 M mute',
     WIDTH / 2,
     296
   );
@@ -301,9 +301,46 @@ function drawResults(ctx, game) {
   const completed = res.completed || [true, false, false];
 
   ctx.save();
-  // Moderate dim so cones and courtyard remain clearly readable behind the panel.
+  // Moderate dim so cones, courtyard, and route replay remain clearly readable behind the panel.
   ctx.fillStyle = rndColorAlpha(COLORS.background, 0.36);
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  // G8: thin dotted cyan trail of the player's actual run with start and exit marked.
+  const trail = game && Array.isArray(game.trail) ? game.trail : [];
+  if (trail.length >= 2) {
+    ctx.save();
+    ctx.strokeStyle = rndColorAlpha(COLORS.hidden, 0.78);
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([2, 6]);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(trail[0].x, trail[0].y);
+    for (let i = 1; i < trail.length; i++) {
+      ctx.lineTo(trail[i].x, trail[i].y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const startPt = trail[0];
+    ctx.fillStyle = COLORS.hudBg;
+    ctx.strokeStyle = COLORS.hidden;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(startPt.x, startPt.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    const endPt = trail[trail.length - 1];
+    ctx.fillStyle = COLORS.exitLit;
+    ctx.strokeStyle = COLORS.playerOutline;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(endPt.x, endPt.y, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
 
   const panelW = 470;
   const panelH = 282;
@@ -445,12 +482,353 @@ function drawLevelError(ctx, message) {
   ctx.restore();
 }
 
+const UI_FIELD_NOTE_ROWS = [
+  { kind: 'watchman', text: 'Watchman + lantern: the light is what he sees' },
+  { kind: 'shadow', text: 'Shadow: safe' },
+  { kind: 'hidden', text: 'HIDDEN: out of the light, beside cover' },
+  { kind: 'screen', text: 'Lattice screen: click its pivot to turn it' },
+  { kind: 'rings', text: 'Rings: footsteps and noise' },
+  { kind: 'pebble', text: 'Click the floor: toss a pebble' },
+  { kind: 'lamp', text: 'Lamplight: seen from afar \u2014 press E to douse' },
+  { kind: 'gate', text: 'Canal Gate: opens once you hold the letter' },
+];
+
+function uiDrawNoteIcon(ctx, kind, cx, cy) {
+  ctx.save();
+  if (kind === 'watchman') {
+    ctx.fillStyle = rndColorAlpha(COLORS.coneEdge, 0.36);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + 12, cy - 5.5);
+    ctx.lineTo(cx + 12, cy + 5.5);
+    ctx.closePath();
+    ctx.fill();
+    if (typeof drawWatchmanFigure === 'function') {
+      ctx.save();
+      ctx.translate(cx - 2, cy);
+      ctx.scale(0.55, 0.55);
+      drawWatchmanFigure(ctx, { x: 0, y: 0, facing: 0, moving: false, state: 'PATROL', flickerPhase: 0 }, 0);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = COLORS.guardBody;
+      ctx.strokeStyle = COLORS.guardOutline;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx - 3, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = COLORS.lantern;
+      ctx.beginPath();
+      ctx.arc(cx + 2, cy, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (kind === 'shadow') {
+    rndRoundedRectPath(ctx, cx - 7, cy - 7, 14, 14, 3);
+    ctx.fillStyle = COLORS.floor;
+    ctx.fill();
+    ctx.strokeStyle = COLORS.wallEdge;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  } else if (kind === 'hidden') {
+    ctx.strokeStyle = COLORS.hidden;
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([3, 2]);
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy - 7);
+    ctx.lineTo(cx - 7, cy + 7);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (typeof drawCourierFigure === 'function') {
+      ctx.save();
+      ctx.translate(cx + 2, cy);
+      ctx.scale(0.55, 0.55);
+      drawCourierFigure(ctx, { x: 0, y: 0, facing: 0, moving: false, hidden: true, radius: TUNING.playerRadius }, 0, false);
+      ctx.restore();
+    } else {
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = COLORS.player;
+      ctx.beginPath();
+      ctx.arc(cx + 2, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.stroke();
+    }
+  } else if (kind === 'screen') {
+    ctx.fillStyle = COLORS.screenPanel;
+    ctx.fillRect(cx - 2.5, cy - 8, 5, 16);
+    ctx.fillStyle = COLORS.screenPivot;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === 'rings') {
+    ctx.strokeStyle = COLORS.lantern;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (kind === 'pebble') {
+    ctx.strokeStyle = rndColorAlpha(COLORS.letter, 0.7);
+    ctx.lineWidth = 1.3;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy + 4);
+    ctx.quadraticCurveTo(cx, cy - 8, cx + 6, cy + 3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = COLORS.letter;
+    ctx.beginPath();
+    ctx.arc(cx + 6, cy + 3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === 'lamp') {
+    const grad = ctx.createRadialGradient(cx, cy, 1, cx, cy, 9);
+    grad.addColorStop(0, rndColorAlpha(COLORS.lampGlow, 0.65));
+    grad.addColorStop(1, rndColorAlpha(COLORS.lampGlow, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = COLORS.lampPost;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = COLORS.lampGlow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === 'gate') {
+    rndRoundedRectPath(ctx, cx - 6, cy - 7, 12, 14, 2);
+    ctx.fillStyle = rndColorAlpha(COLORS.exitLit, 0.25);
+    ctx.fill();
+    ctx.strokeStyle = COLORS.exitLit;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawObjective(ctx, game) {
+  if (!game || game.state !== 'playing') return;
+  const text = game.hasLetter ? 'Reach the Canal Gate \u2014 unseen' : 'Fetch the sealed letter \u2014 unseen';
+  drawCapsule(ctx, text, WIDTH / 2, 10, {
+    align: 'center',
+    valign: 'top',
+    font: 'bold 17px ' + FONT,
+    color: COLORS.hudText,
+    borderColor: game.hasLetter ? COLORS.exitLit : COLORS.letterGlint,
+    borderAlpha: 0.72,
+    height: 34,
+    padX: 16,
+  });
+}
+
+function uiCollectProtectedCircles(game) {
+  const out = [];
+  const p = game.player;
+  if (p) out.push({ x: p.x, y: p.y, r: (p.radius || TUNING.playerRadius) + 12 });
+  const guards = game.guards || [];
+  for (let i = 0; i < guards.length; i++) {
+    out.push({ x: guards[i].x, y: guards[i].y, r: (TUNING.guardRadius || 11) + 14 });
+  }
+  const level = game.level;
+  if (level) {
+    if (!game.hasLetter && level.letter) {
+      const lc = tileCenter(level.letter.tx, level.letter.ty);
+      out.push({ x: lc.x, y: lc.y, r: 22 });
+    }
+    if (level.exit) {
+      const ec = tileCenter(level.exit.tx, level.exit.ty);
+      out.push({ x: ec.x, y: ec.y, r: 22 });
+    }
+  }
+  return out;
+}
+
+function uiBoxIsSafe(box, circles) {
+  if (box.x < 10 || box.x + box.w > WIDTH - 10 || box.y < 52 || box.y + box.h > HEIGHT - 8) {
+    return false;
+  }
+  for (let i = 0; i < circles.length; i++) {
+    const c = circles[i];
+    const nx = clamp(c.x, box.x, box.x + box.w);
+    const ny = clamp(c.y, box.y, box.y + box.h);
+    const dx = c.x - nx;
+    const dy = c.y - ny;
+    if (dx * dx + dy * dy <= c.r * c.r) return false;
+  }
+  return true;
+}
+
+function uiPickFieldNotesBox(game) {
+  const levelIdx = typeof game.levelIndex === 'number' ? game.levelIndex : 0;
+  const circles = uiCollectProtectedCircles(game);
+  const singleW = 462;
+  const singleH = 198;
+  const twoW = 870;
+  const twoH = 138;
+  const singleBoxes = [
+    { x: 806, y: 274, w: singleW, h: singleH, twoCol: false },
+    { x: 786, y: 54, w: 420, h: singleH, twoCol: false },
+    { x: 12, y: 274, w: 420, h: singleH, twoCol: false },
+    { x: 12, y: 54, w: 420, h: singleH, twoCol: false },
+    { x: 806, y: 54, w: singleW, h: singleH, twoCol: false },
+    { x: 12, y: 274, w: singleW, h: singleH, twoCol: false },
+    { x: 12, y: 54, w: singleW, h: singleH, twoCol: false },
+    { x: 409, y: 274, w: 420, h: singleH, twoCol: false },
+    { x: 409, y: 54, w: 420, h: singleH, twoCol: false },
+  ];
+  const twoBoxes = [
+    { x: 200, y: 332, w: twoW, h: twoH, twoCol: true },
+    { x: 200, y: 54, w: twoW, h: twoH, twoCol: true },
+    { x: 12, y: 332, w: twoW, h: twoH, twoCol: true },
+    { x: 398, y: 332, w: twoW, h: twoH, twoCol: true },
+    { x: 12, y: 54, w: twoW, h: twoH, twoCol: true },
+    { x: 398, y: 54, w: twoW, h: twoH, twoCol: true },
+  ];
+  const candidates = levelIdx === 2
+    ? twoBoxes.concat(singleBoxes)
+    : singleBoxes.concat(twoBoxes);
+
+  for (let i = 0; i < candidates.length; i++) {
+    if (uiBoxIsSafe(candidates[i], circles)) return candidates[i];
+  }
+  return null;
+}
+
+function drawFieldNotes(ctx, game) {
+  if (!game || !game.fieldNotes) return;
+  const box = uiPickFieldNotesBox(game);
+  if (!box) return;
+  const twoCol = box.twoCol;
+
+  ctx.save();
+  rndRoundedRectPath(ctx, box.x, box.y, box.w, box.h, 8);
+  ctx.fillStyle = COLORS.hudBg;
+  ctx.fill();
+  ctx.strokeStyle = COLORS.coneEdge;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = COLORS.coneEdge;
+  ctx.font = 'bold 14px ' + FONT;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('FIELD NOTES', box.x + 14, box.y + 15);
+
+  ctx.font = 'bold 17px ' + FONT;
+  ctx.fillStyle = COLORS.hudText;
+
+  if (twoCol) {
+    const colW = (box.w - 36) / 2;
+    for (let i = 0; i < UI_FIELD_NOTE_ROWS.length; i++) {
+      const row = UI_FIELD_NOTE_ROWS[i];
+      const col = i < 4 ? 0 : 1;
+      const rIdx = col === 0 ? i : i - 4;
+      const rx = box.x + 14 + col * (colW + 12);
+      const ry = box.y + 40 + rIdx * 24;
+      uiDrawNoteIcon(ctx, row.kind, rx + 9, ry);
+      ctx.fillText(row.text, rx + 26, ry + 0.5, colW - 28);
+    }
+  } else {
+    const textMaxW = box.w - 48;
+    for (let i = 0; i < UI_FIELD_NOTE_ROWS.length; i++) {
+      const row = UI_FIELD_NOTE_ROWS[i];
+      const ry = box.y + 37 + i * 19.5;
+      uiDrawNoteIcon(ctx, row.kind, box.x + 22, ry);
+      ctx.fillText(row.text, box.x + 40, ry + 0.5, textMaxW);
+    }
+  }
+  ctx.restore();
+}
+
+function drawCallouts(ctx, game) {
+  const list = (game && game.callouts) || [];
+  if (!list.length) return;
+
+  ctx.save();
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    if (!c || !c.text) continue;
+    const label = String(c.text).slice(0, 40);
+    if (typeof c.toX === 'number' && typeof c.toY === 'number') {
+      ctx.strokeStyle = COLORS.hidden;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(c.toX, c.toY);
+      ctx.stroke();
+
+      ctx.fillStyle = COLORS.hidden;
+      ctx.beginPath();
+      ctx.arc(c.toX, c.toY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = COLORS.playerOutline;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    drawCapsule(ctx, label, c.x, c.y, {
+      align: 'center',
+      valign: 'middle',
+      font: 'bold 16px ' + FONT,
+      color: COLORS.hudText,
+      bg: COLORS.hudBg,
+      borderColor: COLORS.hidden,
+      borderAlpha: 0.92,
+      borderWidth: 1,
+      height: 30,
+      padX: 12,
+      clampToCanvas: true,
+    });
+  }
+  ctx.restore();
+}
+
+function drawBarks(ctx, game) {
+  const barks = (game && game.barks) || [];
+  if (!barks.length) return;
+  const now = (game && game.time) || 0;
+
+  for (let i = 0; i < barks.length; i++) {
+    const b = barks[i];
+    if (!b || !b.guard || !b.text) continue;
+    if (typeof b.until === 'number' && now > b.until) continue;
+    const left = typeof b.until === 'number' ? b.until - now : 1;
+    const alpha = left < 0.25 ? clamp(left / 0.25, 0, 1) : 1;
+    const bx = clamp(b.guard.x, 76, WIDTH - 76);
+    const by = Math.max(22, b.guard.y - (TUNING.guardRadius || 11) - 38);
+    const st = b.guard.state;
+    const borderColor = st === 'ALERT' ? COLORS.alert : (st === 'SUSPICIOUS' || st === 'INVESTIGATE' ? COLORS.seen : COLORS.wallEdge);
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawCapsule(ctx, b.text, bx, by, {
+      align: 'center',
+      valign: 'middle',
+      font: 'bold 15px ' + FONT,
+      color: COLORS.hudText,
+      borderColor: borderColor,
+      borderAlpha: 0.9,
+      height: 26,
+      padX: 10,
+      clampToCanvas: true,
+    });
+    ctx.restore();
+  }
+}
+
 function drawOverlay(ctx, game) {
   if (!game) return;
   const state = game.state;
   if (state === 'title') {
     drawTitle(ctx, game);
   } else if (state === 'playing') {
+    drawObjective(ctx, game);
+    drawBarks(ctx, game);
+    drawFieldNotes(ctx, game);
     const hints = game.hints || [];
     for (let i = 0; i < hints.length; i++) {
       const h = hints[i];
@@ -458,6 +836,7 @@ function drawOverlay(ctx, game) {
         drawHint(ctx, h, game);
       }
     }
+    drawCallouts(ctx, game);
   } else if (state === 'paused') {
     drawPause(ctx, game);
   } else if (state === 'caught') {

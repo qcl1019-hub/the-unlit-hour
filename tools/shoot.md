@@ -1,6 +1,6 @@
 # Screenshot Capture & Reproduction Guide
 
-All four entry screenshots in `screenshots/` are deterministic `1280×480` PNG renders of `game/index.html?shot=1` through `?shot=4` (mapped in `../shots.json`). In shot mode, `game/js/game.js` adds class `shot` to `<html>`, skips `requestAnimationFrame`, seeds `mulberry32(1337)`, runs `applyShot(game, N)` from `game/js/shots.js`, renders one frame, sets `window.__shotReady = true` and `window.__SHOT_READY = true`, and sets `document.title = 'READY'`.
+All four entry screenshots in `screenshots/` are deterministic `1280×480` PNG renders of `game/index.html?shot=1` through `?shot=4` (mapped in `../shots.json`). In shot mode, `game/js/game.js` adds class `shot` to `<html>`, skips `requestAnimationFrame`, seeds `mulberry32(1337)`, runs `applyShot(game, N)` from `game/js/shots.js` (enabling Field Notes + callouts on shots 1–3 and disabling them on shot 4), renders one frame, sets `window.__shotReady = true` and `window.__SHOT_READY = true`, and sets `document.title = 'READY'`.
 
 ## Prerequisites
 

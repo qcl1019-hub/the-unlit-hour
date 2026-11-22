@@ -1,5 +1,7 @@
 // Deterministic screenshot scenes (SHOTS 1-4) built via the public Game API and fixed DT ticks.
 
+const SHOT_ROUTE_3 = 'D100 S125 D300 W50 D25 W50 E5 D350 S100 D150 W125 E5';
+
 const SHOTS = {
   1: {
     name: '01-overview',
@@ -9,27 +11,60 @@ const SHOTS = {
       game.loadLevel(1);
       game.time = 1.6;
       game.elapsed = 14.2;
+      game.fieldNotes = true;
+      game.pebbles = 2;
+      game.exposure = 34;
 
-      // North watchman mid-patrol heading west so its gold cone is cleanly clipped by the row-5 carts.
+      // Douse the lamp post at (18, 2) near Wren and the north watchman while keeping the other lamps lit.
+      const douseIdx = game.level.lamps.findIndex((lamp) => lamp.tx === 18 && lamp.ty === 2);
+      if (douseIdx >= 0 && Array.isArray(game.level.lampsLit)) {
+        game.level.lampsLit[douseIdx] = false;
+      }
+
+      // Wren HIDDEN in the shadow of cart (16, 5), right at the rim of the north watchman's cone.
+      const wrenPos = tileCenter(16, 6);
+      game.player.x = wrenPos.x;
+      game.player.y = wrenPos.y;
+      game.player.facing = -Math.PI / 4;
+
+      // North watchman in INVESTIGATE ("?") walking toward a pebble that just landed at (20, 4).
+      const pebblePos = tileCenter(20, 4);
       const north = game.guards[0];
-      shotPlaceGuard(north, 20, 4, 165 * DEG);
-      north.setState('PATROL', { waypoint: 3 });
-      north.walkingPatrol = true;
-      north.waypoint = 0;
-      north.path = findPath(game.world, 20, 4, 14, 4) || [];
-      north.facing = 158 * DEG;
+      shotPlaceGuard(north, 14, 3, 10 * DEG);
+      north.setState('INVESTIGATE', { noiseTarget: { tx: 20, ty: 4 } });
+      north.facing = 10 * DEG;
+      north.sweepBase = 10 * DEG;
+      north.path = findPath(game.world, 14, 3, 20, 4) || [];
 
-      // South watchman mid-patrol heading east across the south bank toward the south bridge.
+      // South watchman walking west with footstep rings, cone cut flat by the west lattice screen.
       const south = game.guards[1];
-      shotPlaceGuard(south, 16, 11, 0);
-      south.setState('PATROL', { waypoint: 0 });
+      shotPlaceGuard(south, 16, 11, Math.PI);
+      south.setState('PATROL', { waypoint: 1 });
       south.walkingPatrol = true;
-      south.waypoint = 1;
-      south.path = findPath(game.world, 16, 11, 21, 11) || [];
-      south.facing = 0;
+      south.waypoint = 0;
+      south.path = findPath(game.world, 16, 11, 14, 11) || [];
+      south.facing = Math.PI;
 
-      // Wren stays at the west start (1, 7), hidden beside the west wall.
-      game.player.facing = 0;
+      game.pebble = {
+        fromX: wrenPos.x,
+        fromY: wrenPos.y,
+        x: pebblePos.x,
+        y: pebblePos.y,
+        t: 1,
+        landedAt: game.time,
+      };
+      game.noises = [
+        { x: pebblePos.x, y: pebblePos.y, radius: 6 * TILE, born: game.time },
+        { x: south.x, y: south.y, radius: 2.5 * TILE, born: game.time - 0.1 },
+      ];
+
+      const letterPos = tileCenter(game.level.letter.tx, game.level.letter.ty);
+      game.callouts = [
+        { text: 'YOU: hidden at the edge of the light', x: 340, y: 270, toX: wrenPos.x, toY: wrenPos.y },
+        { text: 'Pebble: he goes to look', x: 790, y: 74, toX: pebblePos.x, toY: pebblePos.y },
+        { text: 'THE SEALED LETTER', x: 624, y: 312, toX: letterPos.x, toY: letterPos.y },
+      ];
+
       game.mouse = { x: -1, y: -1 };
     },
   },
@@ -42,6 +77,7 @@ const SHOTS = {
       game.loadLevel(1);
       game.time = 2.4;
       game.elapsed = 22.8;
+      game.fieldNotes = true;
 
       // North watchman patrolling east across the north bridge.
       const north = game.guards[0];
@@ -70,34 +106,39 @@ const SHOTS = {
       const pivot = tileCenter(game.screens[0].tx, game.screens[0].ty);
       game.mouse = { x: pivot.x, y: pivot.y };
       game.clicks.push({ x: pivot.x, y: pivot.y });
+
+      game.callouts = [
+        { text: 'Turning the screen cuts his light', x: 472, y: 422, toX: pivot.x, toY: pivot.y },
+      ];
     },
   },
 
   3: {
     name: '03-close-call',
     levelIndex: 2,
-    ticks: 6,
+    ticks: 1,
     setup: function (game) {
       game.loadLevel(2);
       game.time = 3.2;
       game.elapsed = 41.5;
       game.hasLetter = true;
       game.timesSeen = 1;
-      game.exposure = 53;
+      game.exposure = 58.8;
+      game.fieldNotes = true;
 
-      // Wren holds the letter right at the southern edge of the north watchman's gold cone, sneaking east.
-      const wrenPos = tileCenter(25, 6);
-      game.player.x = wrenPos.x + 8;
-      game.player.y = wrenPos.y + 10;
+      // Wren holds the letter right at the southern rim of the north watchman's gold cone, sneaking east.
+      const wrenPos = tileCenter(24, 6);
+      game.player.x = wrenPos.x - 8;
+      game.player.y = wrenPos.y + 5;
       game.player.facing = 0;
       game.keys.add('ShiftLeft');
 
-      // Watchman 0 (north courtyard): sees Wren right at the southern edge of its cone -> SUSPICIOUS ("?").
+      // Watchman 0 (north courtyard): sees Wren right at the southern rim of its cone -> SUSPICIOUS ("?").
       const north = game.guards[0];
-      shotPlaceGuard(north, 19, 5, -20 * DEG);
+      shotPlaceGuard(north, 19, 5, -21 * DEG);
       north.setState('PATROL', { waypoint: 1 });
-      north.facing = -20 * DEG;
-      north.sweepBase = -20 * DEG;
+      north.facing = -21 * DEG;
+      north.sweepBase = -21 * DEG;
 
       // Watchman 1 (south courtyard): ALERT with red cone, "!", and BFS dotted path to the letter spot.
       const south = game.guards[1];
@@ -112,6 +153,11 @@ const SHOTS = {
       gate.facing = 150 * DEG;
       gate.sweepBase = 150 * DEG;
 
+      game.callouts = [
+        { text: '! ALERT: running to where you were seen', x: 470, y: 215, toX: south.x, toY: south.y },
+        { text: 'SEEN: back to the shadow', x: 870, y: 155, toX: game.player.x, toY: game.player.y },
+      ];
+
       game.mouse = { x: -1, y: -1 };
     },
   },
@@ -119,43 +165,31 @@ const SHOTS = {
   4: {
     name: '04-delivered',
     levelIndex: 2,
-    ticks: 8,
-    finishOnLastTick: true,
+    ticks: 0,
+    finishOnLastTick: false,
     setup: function (game) {
       game.completed = [true, true, false];
       game.unlocked = [true, true, true];
       game.loadLevel(2);
-      game.time = 4.0;
-      game.elapsed = 68.25;
-      game.hasLetter = true;
-      game.timesSeen = 0;
-      game.exposure = 0;
-
-      // Position courtyard watchmen so their gold cones frame the results panel cleanly.
-      const north = game.guards[0];
-      shotPlaceGuard(north, 10, 5, 16 * DEG);
-      north.setState('PATROL', { waypoint: 0 });
-      north.facing = 16 * DEG;
-      north.sweepBase = 16 * DEG;
-
-      const south = game.guards[1];
-      shotPlaceGuard(south, 28, 9, -162 * DEG);
-      south.setState('PATROL', { waypoint: 0 });
-      south.facing = -162 * DEG;
-      south.sweepBase = -162 * DEG;
-
-      const gate = game.guards[2];
-      shotPlaceGuard(gate, 35, 7, 155 * DEG);
-      gate.setState('PATROL', { waypoint: 0 });
-      gate.facing = 155 * DEG;
-      gate.sweepBase = 155 * DEG;
-
-      // Stand on the glowing exit tile so pressing E finishes the level cleanly.
-      const exitPos = tileCenter(game.level.exit.tx, game.level.exit.ty);
-      game.player.x = exitPos.x;
-      game.player.y = exitPos.y;
-      game.player.facing = 0;
+      game.fieldNotes = false;
+      game.callouts = [];
       game.mouse = { x: -1, y: -1 };
+
+      // Replay the actual zero-exposure Gatehouse Court route via Game.step(DT) so trail and stats are genuine.
+      const tokens = SHOT_ROUTE_3.split(' ');
+      for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        const code = 'Key' + token[0];
+        const frames = Number(token.slice(1));
+        game.keys.clear();
+        if (code === 'KeyE') game.pressed.add(code);
+        else game.keys.add(code);
+        for (let f = 0; f < frames; f++) {
+          game.step(DT);
+        }
+      }
+      game.keys.clear();
+      game.pressed.clear();
     },
   },
 };

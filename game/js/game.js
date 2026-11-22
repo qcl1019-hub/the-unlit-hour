@@ -1,10 +1,18 @@
 // Run the fixed-step town simulation and connect it to the canvas and controls.
 const gameControlCodes = new Set([
   'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight',
-  'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyR', 'Escape', 'KeyM', 'Enter',
+  'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyR', 'Escape', 'KeyM', 'KeyH', 'Enter',
   'Digit1', 'Digit2', 'Digit3',
 ]);
 const gameProgressKey = 'unlitHour.progress';
+const gamePebbleRange = 6 * TILE;
+const gamePebbleFlight = 0.4;
+const gameGuardBarks = {
+  SUSPICIOUS: "Hm? Who's there?",
+  INVESTIGATE: 'What was that?',
+  ALERT: 'There! Stop!',
+  SEARCH: 'Where did you go…',
+};
 
 class Game {
   constructor(canvas, query = new URLSearchParams()) {
@@ -37,13 +45,28 @@ class Game {
     this.keys = new Set();
     this.pressed = new Set();
     this.clicks = [];
+    this.gameResetFieldState();
     this.sfx = typeof Sfx === 'function' ? new Sfx({ silent: Boolean(this.shot) }) : null;
     this.query = query;
+  }
+
+  gameResetFieldState() {
+    this.fieldNotes = false;
+    this.pebbles = 3;
+    this.pebble = null;
+    this.flyingPebbles = [];
+    this.noises = [];
+    this.callouts = [];
+    this.barks = [];
+    this.heartbeatIn = 0;
+    this.trail = [];
+    this.trailSampleIn = 0.25;
   }
 
   loadLevel(index) {
     this.levelIndex = index;
     this.level = { ...this.levels[index], ripplePhase: this.rng() * Math.PI * 2 };
+    this.level.lampsLit = this.level.lamps.map(() => true);
     this.screens = this.level.screens.map(def => new LatticeScreen(def));
     this.world = { level: this.level, screens: this.screens };
     this.player = new Player(this.level.start);
@@ -54,6 +77,8 @@ class Game {
     this.hasLetter = false;
     this.timesSeen = 0;
     this.elapsed = 0;
+    this.gameResetFieldState();
+    this.trail.push({ x: this.player.x, y: this.player.y });
     this.hints = [];
     this.shownHints = new Set();
     this.results = null;
@@ -79,6 +104,10 @@ class Game {
   }
 
   gameFinishLevel() {
+    const last = this.trail.at(-1);
+    if (last?.x !== this.player.x || last?.y !== this.player.y) {
+      this.trail.push({ x: this.player.x, y: this.player.y });
+    }
     const unseen = this.timesSeen === 0;
     this.completed[this.levelIndex] = true;
     this.unlocked = [true, this.completed[0], this.completed[1]];
@@ -167,6 +196,84 @@ class Game {
       screen.shake();
       this.sfx?.thud();
     }
+    return true;
+  }
+
+  gameTossPebble(point) {
+    if (this.pebbles <= 0) return false;
+    const tx = pixelToTile(point.x), ty = pixelToTile(point.y);
+    const target = tileCenter(tx, ty);
+    const { x, y } = this.player;
+    if (!isWalkable(this.world, tx, ty) ||
+        distance(x, y, target.x, target.y) > gamePebbleRange ||
+        !hasLineOfSight(this.world, x, y, target.x, target.y)) return false;
+
+    this.pebbles--;
+    this.pebble = { fromX: x, fromY: y, x: target.x, y: target.y, t: 0, landedAt: null };
+    this.flyingPebbles.push(this.pebble);
+    return true;
+  }
+
+  gameUpdatePebble(dt) {
+    if (!this.flyingPebbles.length) return;
+    for (const pebble of this.flyingPebbles) {
+      pebble.t = Math.min(1, pebble.t + dt / gamePebbleFlight);
+      if (pebble.t >= 1 - 1e-9) this.gameLandPebble(pebble, this.time + dt);
+    }
+    this.flyingPebbles = this.flyingPebbles.filter(pebble => pebble.landedAt === null);
+  }
+
+  gameLandPebble(pebble, landedAt) {
+    pebble.t = 1;
+    pebble.landedAt = landedAt;
+    this.sfx?.pebble?.();
+    const noiseTarget = { tx: pixelToTile(pebble.x), ty: pixelToTile(pebble.y) };
+    this.gameEmitNoise(pebble.x, pebble.y, gamePebbleRange, landedAt, [noiseTarget]);
+  }
+
+  gameDouseLamp() {
+    const tx = pixelToTile(this.player.x), ty = pixelToTile(this.player.y);
+    const index = this.level.lamps.findIndex((tile, i) => this.level.lampsLit[i] &&
+      Math.abs(tile.tx - tx) + Math.abs(tile.ty - ty) === 1);
+    if (index === -1) return;
+
+    this.level.lampsLit[index] = false;
+    const lamp = this.level.lamps[index];
+    const center = tileCenter(lamp.tx, lamp.ty);
+    this.sfx?.douse?.();
+    // The lamp post blocks movement, so a guard approaches from a reachable side.
+    const sides = [
+      { tx: lamp.tx + 1, ty: lamp.ty },
+      { tx: lamp.tx, ty: lamp.ty + 1 },
+      { tx: lamp.tx - 1, ty: lamp.ty },
+      { tx: lamp.tx, ty: lamp.ty - 1 },
+    ];
+    this.gameEmitNoise(center.x, center.y, 4 * TILE, this.time, sides);
+  }
+
+  gameEmitNoise(x, y, radius, born, targets) {
+    this.noises.push({ x, y, radius, born });
+    for (const guard of this.guards) {
+      if (!['PATROL', 'RETURN', 'SEARCH'].includes(guard.state) ||
+          distance(guard.x, guard.y, x, y) > radius) continue;
+      let noiseTarget = null, bestLength = Infinity;
+      for (const tile of targets) {
+        const path = guard.grdPathTo(this.world, tile.tx, tile.ty);
+        if (path !== null && path.length < bestLength) {
+          noiseTarget = tile;
+          bestLength = path.length;
+        }
+      }
+      if (!noiseTarget) continue;
+      guard.setState('INVESTIGATE', { noiseTarget });
+      this.gameBark(guard, gameGuardBarks.INVESTIGATE);
+    }
+  }
+
+  gameBark(guard, text) {
+    if (!text) return;
+    this.barks = this.barks.filter(bark => bark.guard !== guard);
+    this.barks.push({ guard, text, until: this.time + 1.6 });
   }
 
   gameStepTitle(pressed) {
@@ -196,6 +303,14 @@ class Game {
     this.exposure = advanceExposure(this.exposure, nearest, this.player.sneaking, dt);
   }
 
+  gameUpdateHeartbeat(dt) {
+    this.heartbeatIn = Math.max(0, this.heartbeatIn - dt);
+    if (!this.seenBy || this.exposure <= 0 || this.heartbeatIn > 0) return;
+    const intensity = this.exposure / TUNING.exposureMax;
+    this.sfx?.heartbeat?.(intensity);
+    this.heartbeatIn = 1 - 0.4 * intensity;
+  }
+
   gameUpdateFootsteps(dt) {
     const player = this.player;
     if (player.moving) {
@@ -216,6 +331,7 @@ class Game {
       guard.stepTimer += dt;
       if (guard.stepTimer + 1e-9 < TUNING.guardStepInterval) continue;
       guard.stepTimer = Math.max(0, guard.stepTimer - TUNING.guardStepInterval);
+      this.noises.push({ x: guard.x, y: guard.y, radius: 2.5 * TILE, born: this.time, alert: guard.state === 'ALERT' });
       const hearing = TUNING.guardStepHearing * TILE;
       const gain = 1 - distance(guard.x, guard.y, player.x, player.y) / hearing;
       if (gain > 0) this.sfx?.guardStep(clamp((guard.x - player.x) / hearing, -1, 1), gain);
@@ -272,8 +388,11 @@ class Game {
       return;
     }
     if (this.state !== 'playing') return;
+    if (pressed.has('KeyH')) this.fieldNotes = !this.fieldNotes;
 
-    for (const point of clicks) this.gameTurnScreen(point);
+    for (const point of clicks) {
+      if (!this.gameTurnScreen(point)) this.gameTossPebble(point);
+    }
     const held = (a, b) => Number(this.keys.has(a) || this.keys.has(b));
     this.player.move(this.world, {
       dx: held('KeyD', 'ArrowRight') - held('KeyA', 'ArrowLeft'),
@@ -283,7 +402,9 @@ class Game {
     for (const screen of this.screens) {
       if (screen.update(dt, this.player, this.guards) === 'occupied') this.sfx?.thud();
     }
+    this.gameUpdatePebble(dt);
     this.gameUpdateExposure(dt);
+    this.gameUpdateHeartbeat(dt);
     for (const guard of this.guards) {
       const previous = guard.state;
       guard.update(dt, this.world, this.player, this.exposure);
@@ -293,6 +414,11 @@ class Game {
       } else if (guard.state === 'SUSPICIOUS' && previous !== 'SUSPICIOUS') {
         this.sfx?.suspect();
       }
+      if (previous !== guard.state) {
+        const calming = ['SUSPICIOUS', 'SEARCH'].includes(previous) &&
+          (guard.state === 'RETURN' || guard.state === 'PATROL');
+        this.gameBark(guard, calming ? 'Just the wind.' : gameGuardBarks[guard.state]);
+      }
     }
     this.player.hidden = this.player.isHidden(this.world, this.guards);
     if (this.guards.some(guard => guard.caughtPlayer)) this.state = 'caught';
@@ -301,8 +427,16 @@ class Game {
       this.hasLetter = true;
       this.sfx?.chime();
     }
+    if (this.state === 'playing' && pressed.has('KeyE') && !interaction) this.gameDouseLamp();
     this.time += dt;
     this.elapsed += dt;
+    this.trailSampleIn -= dt;
+    if (this.trailSampleIn <= 1e-9) {
+      this.trail.push({ x: this.player.x, y: this.player.y });
+      this.trailSampleIn += 0.25;
+    }
+    this.noises = this.noises.filter(noise => this.time - noise.born < 1);
+    this.barks = this.barks.filter(bark => bark.until > this.time);
     this.gameUpdateHints();
     this.gameUpdateHover();
     this.gameUpdateFootsteps(dt);
