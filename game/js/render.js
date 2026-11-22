@@ -366,14 +366,19 @@ function rndDrawLampPools(ctx, game) {
   if (!level || !level.lamps || !level.lamps.length) return;
   const { lamps, lampsLit } = level;
   const radius = RENDER_STYLE.lampPoolRadius;
+  const flickerDepth = game.shot ? 0 : 0.07 + 0.13 * clamp(game.exposure / 100, 0, 1);
 
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   for (let i = 0; i < lamps.length; i++) {
     if (lampsLit && lampsLit[i] === false) continue;
     const center = tileCenter(lamps[i].tx, lamps[i].ty);
+    const phase = lamps[i].tx * 1.7 + lamps[i].ty * 0.9;
+    const wave = 0.7 * Math.sin(game.time * 5.4 + phase) +
+      0.3 * Math.sin(game.time * 8.1 + phase * 2);
+    const alpha = 0.22 * (1 + flickerDepth * wave);
     const glow = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
-    glow.addColorStop(0, 'rgba(255,214,150,0.22)');
+    glow.addColorStop(0, `rgba(255,214,150,${alpha})`);
     glow.addColorStop(1, 'rgba(255,214,150,0)');
     ctx.fillStyle = glow;
     ctx.fillRect(center.x - radius, center.y - radius, radius * 2, radius * 2);
