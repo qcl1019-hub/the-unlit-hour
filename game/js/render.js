@@ -20,7 +20,7 @@ const ART = {
   slateA: '#2B3554', slateB: '#313D5F', slateSeam: '#232C47', roofRidge: '#57668C',
   wallBase: '#111629', windowWarm: '#FFE3A8', windowSill: '#151C32',
   awningA: '#7A2E2E', awningB: '#D9C7A3', awningShade: '#531E1E',
-  wheel: '#1B130E', wheelHub: '#7A5638', lampCap: '#1A2136', smoke: '#A5B6D4',
+  wheel: '#1B130E', wheelHub: '#7A5638', lampCap: '#1A2136',
   guardCloak: '#876A41', watchHood: '#3D3024', staff: '#7B5836', boot: '#1D1814',
   hand: '#DFC39B', wrenShade: '#88A2C8', wrenStrap: '#8A6A44',
   pebbleFill: '#CBD4E3', pebbleShade: '#69768E',
@@ -364,32 +364,19 @@ function drawWater(ctx, game) {
 function rndDrawLampPools(ctx, game) {
   const level = game.level;
   if (!level || !level.lamps || !level.lamps.length) return;
-  const lamps = level.lamps, lampsLit = level.lampsLit, time = game.time || 0;
-  const poolR = RENDER_STYLE.lampPoolRadius;
+  const { lamps, lampsLit } = level;
+  const radius = RENDER_STYLE.lampPoolRadius;
 
   ctx.save();
+  ctx.globalCompositeOperation = 'screen';
   for (let i = 0; i < lamps.length; i++) {
     if (lampsLit && lampsLit[i] === false) continue;
-    const c = tileCenter(lamps[i].tx, lamps[i].ty);
-    const pulse = 1 + 0.02 * Math.sin(time * 5.4 + lamps[i].tx * 1.9 + lamps[i].ty * 2.7);
-    const r = poolR * pulse;
-
-    // Stepped flat warm lamplight discs (radius 2*TILE = 64 px): high readability and crisp PNG compression.
-    ctx.save();
-    ctx.globalCompositeOperation = 'screen';
-    ctx.fillStyle = rndColorAlpha(COLORS.lampGlow, 0.11);
-    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = rndColorAlpha(COLORS.lampGlow, 0.12);
-    ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.66, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = rndColorAlpha(COLORS.lampGlow, 0.15);
-    ctx.beginPath(); ctx.arc(c.x, c.y, r * 0.34, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-
-    ctx.strokeStyle = rndColorAlpha(COLORS.coneEdge, 0.24);
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 5]);
-    ctx.beginPath(); ctx.arc(c.x, c.y, poolR, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]);
+    const center = tileCenter(lamps[i].tx, lamps[i].ty);
+    const glow = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, radius);
+    glow.addColorStop(0, 'rgba(255,214,150,0.22)');
+    glow.addColorStop(1, 'rgba(255,214,150,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(center.x - radius, center.y - radius, radius * 2, radius * 2);
   }
   ctx.restore();
 }
@@ -464,7 +451,7 @@ function rndDrawNoises(ctx, game) {
   ctx.restore();
 }
 
-function rndDrawLampPost(ctx, tx, ty, lit, time) {
+function rndDrawLampPost(ctx, tx, ty, lit) {
   const c = tileCenter(tx, ty);
   ctx.save();
   // Cast-iron lamp post + octagonal cap.
@@ -476,28 +463,12 @@ function rndDrawLampPost(ctx, tx, ty, lit, time) {
   if (lit) {
     ctx.fillStyle = COLORS.lampGlow;
     ctx.beginPath(); ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2); ctx.fill();
-  } else {
-    // Doused lamp: dark post + thin rising smoke curl.
-    const sway = Math.sin(time * 2.4 + tx * 1.7 + ty * 2.1) * 3;
-    ctx.strokeStyle = rndColorAlpha(ART.smoke, 0.72);
-    ctx.lineWidth = 1.7; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(c.x, c.y - 4);
-    ctx.bezierCurveTo(c.x - 4 + sway, c.y - 10, c.x + 5 - sway, c.y - 15, c.x + 1 + sway * 0.7, c.y - 23);
-    ctx.stroke();
-
-    ctx.strokeStyle = rndColorAlpha(ART.smoke, 0.4);
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(c.x + 2, c.y - 5);
-    ctx.bezierCurveTo(c.x + 6 - sway * 0.6, c.y - 11, c.x - 2 + sway, c.y - 16, c.x + 4, c.y - 25);
-    ctx.stroke();
   }
   ctx.restore();
 }
 
 function drawWallFaces(ctx, game) {
-  const level = game.level, time = game.time || 0;
+  const level = game.level;
   ctx.save();
   if (rndEnsureStaticCache(level)) ctx.drawImage(rndWallsCache, 0, 0);
   else rndPaintStaticWalls(ctx, level);
@@ -506,11 +477,11 @@ function drawWallFaces(ctx, game) {
   if (lamps && lamps.length) {
     for (let i = 0; i < lamps.length; i++) {
       const lit = !lampsLit || lampsLit[i] !== false;
-      rndDrawLampPost(ctx, lamps[i].tx, lamps[i].ty, lit, time);
+      rndDrawLampPost(ctx, lamps[i].tx, lamps[i].ty, lit);
     }
   } else {
     for (let ty = 0; ty < ROWS; ty++) {
-      for (let tx = 0; tx < COLS; tx++) { if (rndTileAt(level, tx, ty) === 'L') rndDrawLampPost(ctx, tx, ty, true, time); }
+      for (let tx = 0; tx < COLS; tx++) { if (rndTileAt(level, tx, ty) === 'L') rndDrawLampPost(ctx, tx, ty, true); }
     }
   }
   ctx.restore();

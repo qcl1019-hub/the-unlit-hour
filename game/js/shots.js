@@ -124,7 +124,7 @@ const SHOTS = {
       game.hasLetter = true;
       game.timesSeen = 1;
       game.exposure = 58.8;
-      game.fieldNotes = true;
+      game.fieldNotes = false;
 
       // Wren holds the letter right at the southern rim of the north watchman's gold cone, sneaking east.
       const wrenPos = tileCenter(24, 6);
